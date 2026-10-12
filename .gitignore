@@ -1,0 +1,41 @@
+# Upstream source checkouts
+/references/
+
+# Build outputs
+/build/
+/leechcore_device_proton.so
+/tests/fixtures/proton_fixture.exe
+/tests/fixtures/proton_fixture_access.so
+*.o
+*.d
+*.a
+*.so
+*.dll
+*.exe
+*.pdb
+*.gcda
+*.gcno
+
+# Local MemProcFS mounts
+/mnt/
+
+# Python test and analysis caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Compiler and editor state
+compile_commands.json
+.cache/
+.clangd/
+.idea/
+.vscode/
+*.swp
+*~
+
+# Crash dumps and logs
+core
+core.*
+*.log
