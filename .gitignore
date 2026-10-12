@@ -3,6 +3,7 @@
 
 # Build outputs
 /build/
+/dist/
 /leechcore_device_proton.so
 /tests/fixtures/proton_fixture.exe
 /tests/fixtures/proton_fixture_access.so

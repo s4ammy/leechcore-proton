@@ -1,0 +1,125 @@
+name: Release binaries
+
+on:
+    push:
+        branches:
+            - main
+        tags:
+            - "v*"
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    LEECHCORE_REF: "7436c5e9720c7bc816260f29c705332197ea286d"
+
+jobs:
+    release:
+        name: Build Linux x86-64 release
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Check out connector
+              uses: actions/checkout@v4
+
+            - name: Check out compatible LeechCore
+              uses: actions/checkout@v4
+              with:
+                  repository: ufrisk/LeechCore
+                  ref: ${{ env.LEECHCORE_REF }}
+                  path: references/LeechCore
+
+            - name: Install build dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install --yes build-essential libusb-1.0-0-dev pkg-config
+
+            - name: Build and test
+              run: |
+                  make -C references/LeechCore/leechcore leechcore
+                  make
+                  make test-unit
+
+            - name: Package release
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  packageName=leechcore-proton-linux-x86_64
+                  packageDir="dist/$packageName"
+
+                  mkdir -p "$packageDir"
+                  install -m 0755 leechcore_device_proton.so \
+                      "$packageDir/leechcore_device_proton.so"
+                  strip --strip-unneeded "$packageDir/leechcore_device_proton.so"
+                  install -m 0644 README.md "$packageDir/README.md"
+
+                  {
+                      printf 'LeechCore Proton Connector\n'
+                      printf 'Source commit: %s\n' "$GITHUB_SHA"
+                      printf 'LeechCore commit: %s\n' "$LEECHCORE_REF"
+                      printf 'Platform: Linux x86-64\n'
+                  } > "$packageDir/BUILD-INFO.txt"
+
+                  install -m 0755 "$packageDir/leechcore_device_proton.so" \
+                      dist/leechcore_device_proton.so
+                  tar -C dist -czf "dist/$packageName.tar.gz" "$packageName"
+
+                  (
+                      cd dist
+                      sha256sum leechcore_device_proton.so "$packageName.tar.gz" \
+                          > SHA256SUMS
+                  )
+
+            - name: Publish rolling release
+              if: github.ref_type != 'tag'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  releaseNotes="Automated Linux x86-64 build from commit $GITHUB_SHA. Place leechcore_device_proton.so beside the leechcore.so loaded by the client."
+
+                  if gh release view latest >/dev/null 2>&1; then
+                      gh api --method PATCH \
+                          "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" \
+                          -f sha="$GITHUB_SHA" \
+                          -F force=true
+                      gh release edit latest \
+                          --title "Latest development build" \
+                          --notes "$releaseNotes"
+                      gh release upload latest \
+                          dist/leechcore_device_proton.so \
+                          dist/leechcore-proton-linux-x86_64.tar.gz \
+                          dist/SHA256SUMS \
+                          --clobber
+                  else
+                      gh release create latest \
+                          dist/leechcore_device_proton.so \
+                          dist/leechcore-proton-linux-x86_64.tar.gz \
+                          dist/SHA256SUMS \
+                          --target "$GITHUB_SHA" \
+                          --title "Latest development build" \
+                          --notes "$releaseNotes" \
+                          --prerelease \
+                          --latest=false
+                  fi
+
+            - name: Publish versioned release
+              if: startsWith(github.ref, 'refs/tags/v')
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "$GITHUB_REF_NAME" \
+                      dist/leechcore_device_proton.so \
+                      dist/leechcore-proton-linux-x86_64.tar.gz \
+                      dist/SHA256SUMS \
+                      --verify-tag \
+                      --generate-notes \
+                      --latest

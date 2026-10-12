@@ -28,6 +28,22 @@ Run `./benchmark.sh` without arguments for the full benchmark sweep. Set
 `PROTON_BIN` or `WINE_BIN` if automatic runtime detection chooses the wrong
 executable.
 
+## Releases
+
+Every push to `main` builds and tests the Linux x86-64 connector, then updates
+the rolling `latest` prerelease on GitHub. It contains the standalone plugin,
+an archive with installation notes, and SHA-256 checksums.
+
+For a normal versioned release, push a tag beginning with `v`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The downloaded `leechcore_device_proton.so` must be placed beside the exact
+`leechcore.so` loaded by MemProcFS, PCILeech, or another LeechCore client.
+
 ## Build
 
 You need a C11 compiler, GNU make, and a Linux x86-64 build of LeechCore 2.23
@@ -136,7 +152,7 @@ pgrep -af '\.exe'
 
 targetPid=12345
 ps -p "$targetPid" -o pid,ppid,cmd
-grep -i 'YourGame.exe' "/proc/$targetPid/maps"
+grep -i 'TargetApplication.exe' "/proc/$targetPid/maps"
 ```
 
 The final command should show mappings for the application you want to inspect.
